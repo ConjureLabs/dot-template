@@ -24,12 +24,24 @@ const templatized = (template, vars = {}) => {
 }
 
 async function main() {
-  const sql = await fetchSql(path.resolve(__dirname, 'test.sql'))
+  let sql = await fetchSql(path.resolve(__dirname, 'test.sql'))
   
-  const result = templatized(sql, {
+  sql = templatized(sql, {
     limit: 100
   })
 
-  console.log(result)
+  // replacing `!{}`s with `${}`s
+  // keep `\{.*\}` greedy,
+  // so any nested `!{}`s will be captured as well
+  console.log(sql)
+  sql = sql.replace(/([^\\])!(\{.*\})/g, (_, lead, chunk) => {
+    return `${lead}$${chunk}`
+  })
+  sql = templatized(sql, {
+    id: 123,
+    email: 'tim@%'
+  })
+
+  console.log(sql)
 }
 main()
