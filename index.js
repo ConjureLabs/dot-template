@@ -47,16 +47,16 @@ class SqlTemplate {
   }
 }
 
-function dotSql(path) {
+function dotTemplate(path) {
   const template = fs.readFile(path, 'utf8')
 
   return async function prepare(vars) {
-    return new SqlTemplate((await template), vars)
+    return new SqlTemplate(await template, vars)
   }
 }
 
 async function main() {
-  testSql = dotSql(path.resolve(__dirname, 'test.sql'))
+  testSql = dotTemplate(path.resolve(__dirname, 'test.sql'))
 
   const result = await testSql({
     id: 123,
