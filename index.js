@@ -2,6 +2,13 @@ const fs = require('fs').promises
 const path = require('path')
 const util = require('util')
 
+const { DOT_SQL_REDACTED_MESSAGE = '<REDACTED>' } = process.env
+const { DOT_SQL_UNREDACTED_ENVS = 'development' } = process.env
+const { NODE_ENV } = process.env
+
+const unedactedEnvs = DOT_SQL_UNREDACTED_ENVS.replace(/\s*/g, '').split(',')
+const currentEnvRedacted = !unedactedEnvs.includes(NODE_ENV)
+
 const templatized = (template, vars = {}) => {
   const handler = new Function('vars', [
     'const tagged = ( ' + Object.keys(vars).join(', ') + ' ) =>',
@@ -25,8 +32,8 @@ class SqlTemplate {
     const reconfiguredTemplate = withPublicLiterals.replace(/([^\\])!(\{.*\})/g, (_, lead, chunk) => `${lead}$${chunk}`)
     
     this[literalSqlKey] = templatized(reconfiguredTemplate, vars)
-    this[redactedSqlKey] = templatized(reconfiguredTemplate, Object.keys(vars).reduce((redactions, key) => {
-      redactions[key] = '[REDACTED]'
+    this[redactedSqlKey] = !currentEnvRedacted ? this[literalSqlKey] : templatized(reconfiguredTemplate, Object.keys(vars).reduce((redactions, key) => {
+      redactions[key] = DOT_SQL_REDACTED_MESSAGE
       return redactions
     }, {}))
   }
