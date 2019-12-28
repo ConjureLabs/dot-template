@@ -47,24 +47,10 @@ class Template {
   }
 }
 
-function dotTemplate(path) {
+module.exports = function dotTemplate(path) {
   const template = fs.readFile(path, 'utf8')
 
   return async function prepare(vars) {
     return new Template(await template, vars)
   }
 }
-
-async function main() {
-  testSql = dotTemplate(path.resolve(__dirname, 'test.sql'))
-
-  const result = await testSql({
-    id: 123,
-    email: 'tim@%',
-    limit: 100,
-    cte: 'WITH x AS (select * from whatever)\n'
-  })
-
-  console.log('' + result)
-}
-main()
