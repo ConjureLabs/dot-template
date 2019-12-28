@@ -1,5 +1,6 @@
 const fs = require('fs').promises
 const path = require('path')
+const util = require('util')
 
 const templatized = (template, vars = {}) => {
   const handler = new Function('vars', [
@@ -13,6 +14,7 @@ const templatized = (template, vars = {}) => {
 
 const literalSqlKey = Symbol('sql template with literal values')
 const redactedSqlKey = Symbol('sql template with redactions')
+const inspect = Symbol.for('nodejs.util.inspect.custom')
 class SqlTemplate {
   constructor(template, vars) {
     const withPublicLiterals = templatized(template, vars)
@@ -33,8 +35,8 @@ class SqlTemplate {
     return this[redactedSqlKey]
   }
 
-  inspect() {
-    return this[redactedSqlKey]
+  [util.inspect.custom](depth, options) {
+    return options.stylize(this[redactedSqlKey], 'string')
   }
 }
 
