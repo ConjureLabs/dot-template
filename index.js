@@ -39,7 +39,7 @@ class SqlTemplate {
   }
 
   toString() {
-    return this[redactedSqlKey]
+    return this[literalSqlKey]
   }
 
   [util.inspect.custom](depth, options) {
@@ -65,6 +65,6 @@ async function main() {
     cte: 'WITH x AS (select * from whatever)\n'
   })
 
-  console.log(result)
+  console.log('' + result)
 }
 main()
