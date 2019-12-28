@@ -29,7 +29,7 @@ class SqlTemplate {
     // replacing `!{}`s with `${}`s
     // keep `\{.*\}` greedy,
     // so any nested `!{}`s will be captured as well
-    const reconfiguredTemplate = withPublicLiterals.replace(/([^\\])!(\{.*\})/g, (_, lead, chunk) => `${lead}$${chunk}`)
+    const reconfiguredTemplate = withPublicLiterals.replace(/([^\\]|^)!(\{.*\})/g, (_, lead, chunk) => `${lead}$${chunk}`)
     
     this[literalSqlKey] = templatized(reconfiguredTemplate, vars)
     this[redactedSqlKey] = !currentEnvRedacted ? this[literalSqlKey] : templatized(reconfiguredTemplate, Object.keys(vars).reduce((redactions, key) => {
@@ -61,7 +61,8 @@ async function main() {
   const result = await testSql({
     id: 123,
     email: 'tim@%',
-    limit: 100
+    limit: 100,
+    cte: 'WITH x AS (select * from whatever)\n'
   })
 
   console.log(result)
