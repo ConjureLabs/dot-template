@@ -1,5 +1,4 @@
 const fs = require('fs').promises
-const path = require('path')
 const util = require('util')
 
 const { DOT_TEMPLATE_REDACTED_MESSAGE = '<REDACTED>' } = process.env
