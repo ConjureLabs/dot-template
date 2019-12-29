@@ -11,7 +11,8 @@ const unedactedEnvs = DOT_TEMPLATE_UNREDACTED_ENVS.replace(/\s*/g, '').split(','
 const currentEnvRedacted = !unedactedEnvs.includes(NODE_ENV)
 const keyRaw = Symbol('template with literal values')
 const keyRedacted = Symbol('template with mix of literal values and redactions')
-const skipPrefixReplacements = Symbol('skip logic to replace prefixes in templates')
+// `standardTemplate` is assumed to be set only on the first pass
+const standardTemplate = Symbol('skip logic to replace prefixes in templates')
 const inspect = Symbol.for('nodejs.util.inspect.custom')
 
 const templatized = (template, values = {}, valueMutator) => {
@@ -32,14 +33,13 @@ class Template {
     let resultRedacted = template
 
     for (let handlerAttributes of handlers) {
-      let skipReplacements = handlerAttributes.expression === skipPrefixReplacements
       let replacementsMade = false
 
       // copy ref to initial `resultRaw`
       // since we will use it to determine a `state`
       let resultRawInitial = resultRaw
 
-      if (skipReplacements) {
+      if (handlerAttributes.expression === standardTemplate) {
         // forcing assumption that replacements will be made,
         // since we have no insight when skipping this step
         replacementsMade = true
@@ -81,27 +81,19 @@ class Template {
 
         // templates have diverged, but replacements are the same (no redactions)
         case 3:
+          // not checking against `skipReplacements` since that should
+          // only be set on the first pass, which will result in state of `1`
           resultRaw = templatized(resultRaw, values, handlerAttributes.valueMutator)
-          // technically `skipReplacements` should only be true on
-          // the first pass, in which case this state is unreachable,
-          // so this check is unnecessary,
-          // but it's kept in for consistency
-          if (!skipReplacements) {
-            resultRedacted = resultRedacted.replace(handlerAttributes.expression, (_, lead, chunk) => `${lead}$${chunk}`)
-          }
+          resultRedacted = resultRedacted.replace(handlerAttributes.expression, (_, lead, chunk) => `${lead}$${chunk}`)
           resultRedacted = templatized(resultRedacted, values, handlerAttributes.valueMutator)
           break
 
         // templates have diverged, and one will be redacted
         case 4:
+          // not checking against `skipReplacements` since that should
+          // only be set on the first pass, which will result in state of `1`
           resultRaw = templatized(resultRaw, values, handlerAttributes.valueMutator)
-          // technically `skipReplacements` should only be true on
-          // the first pass, in which case this state is unreachable,
-          // so this check is unnecessary,
-          // but it's kept in for consistency
-          if (!skipReplacements) {
-            resultRedacted = resultRedacted.replace(handlerAttributes.expression, (_, lead, chunk) => `${lead}$${chunk}`)
-          }
+          resultRedacted = resultRedacted.replace(handlerAttributes.expression, (_, lead, chunk) => `${lead}$${chunk}`)
           resultRedacted = templatized(resultRedacted, values, variable => DOT_TEMPLATE_REDACTED_MESSAGE)
           break
       }
@@ -135,7 +127,7 @@ module.exports.addHandler = function addHandler({
 }) {
   let expression
 
-  if (expressionPrefix !== skipPrefixReplacements) {
+  if (expressionPrefix !== standardTemplate) {
     if (typeof expressionPrefix !== 'string' || expressionPrefix.length < 1) {
       throw new TypeError('addHandler requires \'expressionPrefix\' to be a string of at least 1 character')
     }
@@ -146,7 +138,7 @@ module.exports.addHandler = function addHandler({
     // so any nested `!{}`s will be captured as well
     expression = new RegExp(`([^\\\\]|^)${expressionPrefix}(\\{.*?\\})`, 'g')
   } else {
-    expression = skipPrefixReplacements
+    expression = standardTemplate
   }
 
   if (typeof valueMutator !== 'function') {
@@ -165,7 +157,7 @@ module.exports.addHandler = function addHandler({
 
 // phase 0: replace standard literals
 module.exports.addHandler({
-  expressionPrefix: skipPrefixReplacements
+  expressionPrefix: standardTemplate
 })
 
 // phase 1: replace sensitive literals
