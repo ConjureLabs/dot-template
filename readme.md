@@ -207,11 +207,11 @@ dotTemplate.addHandler({
   logMutator: (value, templateArgs) => value
 })
 
-// using '$!' to denote values where the
+// using '!@' to denote values where the
 // literal result should be a number like '$1' (indexed)
 // but the value printed to terminal should be redacted
 dotTemplate.addHandler({
-  expressionPrefix: '$@',
+  expressionPrefix: '!@',
   valueMutator: (value, templateArgs, pgQueryArgs) => {
     const index = pgQueryArgs.indexOf(value)
     return `$${index + 1}`
@@ -246,5 +246,7 @@ async function main() {
     and name = $2
   */
   const res = await client.query(queryString, pgQueryArgs)
+
+  console.log(res.rows[0])
 }
 ```
