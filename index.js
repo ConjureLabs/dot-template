@@ -46,10 +46,8 @@ class Template {
       } else {
         // running template re-finagling on the 'raw' template ahead-of-time,
         // so that we can skip all other logic if this is a no-op
-        resultRaw = resultRaw.replace(handlerAttributes.expression, (_, lead, chunk) => {
-          replacementsMade = true
-          return `${lead}$${chunk}`
-        })
+        resultRaw = resultRaw.replace(handlerAttributes.expression, (_, lead, chunk) => `${lead}$${chunk}`)
+        replacementsMade = resultRaw !== resultRawInitial
       }
 
       if (replacementsMade === false) {
