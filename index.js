@@ -5,7 +5,7 @@ const { DOT_TEMPLATE_REDACTED_MESSAGE = '<REDACTED>' } = process.env
 const { DOT_TEMPLATE_UNREDACTED_ENVS = 'development' } = process.env
 const { NODE_ENV } = process.env
 
-const handlers = [] // [{ expression: RegExp, valueMutator: Function, redact: Boolean }]
+const handlers = [] // [{ expression: RegExp, valueMutator?: Function, logMutator?: Function }]
 const regExpSpecialChars = /[\\^$*+?.()|[\]{}]/g
 const unedactedEnvs = DOT_TEMPLATE_UNREDACTED_ENVS.replace(/\s*/g, '').split(',')
 const currentEnvRedacted = !unedactedEnvs.includes(NODE_ENV)
@@ -23,6 +23,7 @@ const templatized = (template, values = {}, mutator, ...tailingArgs) => {
       '`' + template + '`',
     'return tagged(...values)'
   ].join('\n'))
+
 
   const handlerValues = Object.values(values).map(variable => mutator(variable, values, ...tailingArgs))
 
@@ -71,20 +72,20 @@ class Template {
         4
 
       switch (state) {
-        // both templates are the same, and replacements are the same (no redactions)
+        // both templates are the same, and replacements are the same
         case 1:
           // skip all `resultLogged` logic and just set it to be the same at the end
           resultLiteral = resultLogged = templatized(resultLiteral, values, valueMutator, ...tailingArgs)
           break
 
-        // both templates are the same, but one will be redacted
+        // both templates are the same, but replacements differ (between literal string & console logs)
         case 2:
           // `resultLogged` must be processed first, since it uses the current version of `resultLiteral`
           resultLogged = templatized(resultLiteral, values, logMutator, ...tailingArgs)
           resultLiteral = templatized(resultLiteral, values, valueMutator, ...tailingArgs)
           break
 
-        // templates have diverged, but replacements are the same (no redactions)
+        // templates have diverged, but replacements are the same
         case 3:
           // not checking against `skipReplacements` since that should
           // only be set on the first pass, which will result in state of `1`
@@ -93,7 +94,7 @@ class Template {
           resultLogged = templatized(resultLogged, values, valueMutator, ...tailingArgs)
           break
 
-        // templates have diverged, and one will be redacted
+        // templates have diverged, and replacements differ (between literal string & console logs)
         case 4:
           // not checking against `skipReplacements` since that should
           // only be set on the first pass, which will result in state of `1`
@@ -120,8 +121,8 @@ class Template {
 module.exports = function dotTemplate(path) {
   const template = fs.readFile(path, 'utf8')
 
-  return async function prepare(values) {
-    return new Template(await template, values)
+  return async function prepare(values, ...tailingArgs) {
+    return new Template(await template, values, ...tailingArgs)
   }
 }
 
@@ -157,9 +158,6 @@ module.exports.addHandler = function addHandler({
   if (typeof logMutator !== 'function') {
     throw new TypeError('addHandler requires \'logMutator\' to be a function')
   }
-
-  // force unredacted on specified environments
-  redact = currentEnvRedacted ? redact : false
 
   handlers.push({
     expression, // RegExp used to replace special literals with vanilla `${}` literals
