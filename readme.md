@@ -226,4 +226,5 @@ async function main() {
 
   console.log(res.rows[0])
 }
+main()
 ```
