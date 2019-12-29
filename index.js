@@ -22,9 +22,9 @@ const templatized = (template, values = {}, valueMutator) => {
     'return tagged(...values)'
   ].join('\n'))
 
-  const values = Object.values(values).map(variable => valueMutator(variable))
+  const handlerValues = Object.values(values).map(variable => valueMutator(variable))
 
-  return handler(values)
+  return handler(handlerValues)
 }
 
 class Template {
