@@ -5,7 +5,7 @@ const { DOT_TEMPLATE_REDACTED_MESSAGE = '<REDACTED>' } = process.env
 const { DOT_TEMPLATE_UNREDACTED_ENVS = 'development' } = process.env
 const { NODE_ENV } = process.env
 
-const handlers = []
+const handlers = [] // [{ expression: RegExp, value: Function, redact: Boolean }]
 const regExpSpecialChars = /[\\^$*+?.()|[\]{}]/g
 const unedactedEnvs = DOT_TEMPLATE_UNREDACTED_ENVS.replace(/\s*/g, '').split(',')
 const currentEnvRedacted = !unedactedEnvs.includes(NODE_ENV)
@@ -35,7 +35,7 @@ class Template {
       let replacementsMade = false
 
       // copy ref to initial `resultRaw`
-      // so we can run a condition using it later
+      // since we will use it to determine a `state`
       let resultRawInitial = resultRaw
 
       if (skipReplacements) {
@@ -138,8 +138,7 @@ module.exports = function dotTemplate(path) {
 module.exports.addHandler = function addHandler({
   expressionPrefix,
   value = valueArg => valueArg,
-  redact: false,
-  condition: () => true
+  redact: false
 }) => {
   let expression
 
@@ -165,10 +164,9 @@ module.exports.addHandler = function addHandler({
   redact = currentEnvRedacted ? redact : false
 
   handlers.push({
-    expression,
-    value,
-    redact,
-    condition
+    expression, // RegExp used to replace special literals with vanilla `${}` literals
+    value, // function that can be used to manipulate values found in template literals
+    redact // if true, will prevent sensitive args from leaking to console
   })
 }
 
