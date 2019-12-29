@@ -48,7 +48,7 @@ async function main() {
 
 since this library relies on [javascript template literals](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals), you can also access globals and other variables in scope.
 
-_tempalte.txt_
+_template.txt_
 ```txt
 Hello ${name},
 
