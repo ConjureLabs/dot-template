@@ -5,33 +5,34 @@ const { DOT_TEMPLATE_REDACTED_MESSAGE = '<REDACTED>' } = process.env
 const { DOT_TEMPLATE_UNREDACTED_ENVS = 'development' } = process.env
 const { NODE_ENV } = process.env
 
-const handlers = [] // [{ expression: RegExp, value: Function, redact: Boolean }]
+const handlers = [] // [{ expression: RegExp, valueMutator: Function, redact: Boolean }]
 const regExpSpecialChars = /[\\^$*+?.()|[\]{}]/g
 const unedactedEnvs = DOT_TEMPLATE_UNREDACTED_ENVS.replace(/\s*/g, '').split(',')
 const currentEnvRedacted = !unedactedEnvs.includes(NODE_ENV)
 const keyRaw = Symbol('template with literal values')
 const keyRedacted = Symbol('template with mix of literal values and redactions')
-const skipExpressionPrefix = Symbol('skip expression prefix logic for handler')
+const skipPrefixReplacements = Symbol('skip logic to replace prefixes in templates')
 const inspect = Symbol.for('nodejs.util.inspect.custom')
 
-const templatized = (template, vars = {}) => {
-  const handler = new Function('vars', [
+const templatized = (template, vars = {}, valueMutator) => {
+  const handler = new Function('values', [
     'const tagged = ( ' + Object.keys(vars).join(', ') + ' ) =>',
       '`' + template + '`',
-    'return tagged(...Object.values(vars))'
+    'return tagged(...values)'
   ].join('\n'))
 
-  return handler(vars)
+  const values = Object.values(vars).map(variable => valueMutator(variable))
+
+  return handler(values)
 }
 
 class Template {
   constructor(template, vars) {
     let resultRaw = template
     let resultRedacted = template
-    let varsRedacted
 
     for (let handlerAttributes of handlers) {
-      let skipReplacements = handlerAttributes.expressionPrefix === skipExpressionPrefix
+      let skipReplacements = handlerAttributes.expression === skipPrefixReplacements
       let replacementsMade = false
 
       // copy ref to initial `resultRaw`
@@ -66,29 +67,23 @@ class Template {
         handlerAttributes.redact === false ? 3 :
         4
 
-      if ((state === 2 || state === 4) && varsRedacted === undefined) {
-        varsRedacted = Object.keys(vars).reduce((redactions, key) => {
-          redactions[key] = DOT_TEMPLATE_REDACTED_MESSAGE
-          return redactions
-        }, {})
-      }
-
       switch (state) {
         // both templates are the same, and replacements are the same (no redactions)
         case 1:
           // skip all `resultRedacted` logic and just set it to be the same at the end
-          resultRaw = resultRedacted = templatized(resultRaw, vars)
+          resultRaw = resultRedacted = templatized(resultRaw, vars, handlerAttributes.valueMutator)
           break
 
         // both templates are the same, but one will be redacted
         case 2:
-          resultRaw = templatized(resultRaw, vars)
-          resultRedacted = templatized(resultRaw, varsRedacted)
+          // `resultRedacted` must be processed first, since it uses the current version of `resultRaw`
+          resultRedacted = templatized(resultRaw, vars, variable => DOT_TEMPLATE_REDACTED_MESSAGE)
+          resultRaw = templatized(resultRaw, vars, handlerAttributes.valueMutator)
           break
 
         // templates have diverged, but replacements are the same (no redactions)
         case 3:
-          resultRaw = templatized(resultRaw, vars)
+          resultRaw = templatized(resultRaw, vars, handlerAttributes.valueMutator)
           // technically `skipReplacements` should only be true on
           // the first pass, in which case this state is unreachable,
           // so this check is unnecessary,
@@ -96,12 +91,12 @@ class Template {
           if (!skipReplacements) {
             resultRedacted = resultRedacted.replace(handlerAttributes.expression, (_, lead, chunk) => `${lead}$${chunk}`)
           }
-          resultRedacted = templatized(resultRedacted, vars)
+          resultRedacted = templatized(resultRedacted, vars, handlerAttributes.valueMutator)
           break
 
         // templates have diverged, and one will be redacted
         case 4:
-          resultRaw = templatized(resultRaw, vars)
+          resultRaw = templatized(resultRaw, vars, handlerAttributes.valueMutator)
           // technically `skipReplacements` should only be true on
           // the first pass, in which case this state is unreachable,
           // so this check is unnecessary,
@@ -109,7 +104,7 @@ class Template {
           if (!skipReplacements) {
             resultRedacted = resultRedacted.replace(handlerAttributes.expression, (_, lead, chunk) => `${lead}$${chunk}`)
           }
-          resultRedacted = templatized(resultRedacted, varsRedacted)
+          resultRedacted = templatized(resultRedacted, vars, variable => DOT_TEMPLATE_REDACTED_MESSAGE)
           break
       }
     }
@@ -137,12 +132,12 @@ module.exports = function dotTemplate(path) {
 
 module.exports.addHandler = function addHandler({
   expressionPrefix,
-  value = valueArg => valueArg,
-  redact: false
-}) => {
+  valueMutator = value => value,
+  redact = false
+}) {
   let expression
 
-  if (expressionPrefix !== skipExpressionPrefix) {
+  if (expressionPrefix !== skipPrefixReplacements) {
     if (typeof expressionPrefix !== 'string' || expressionPrefix.length < 1) {
       throw new TypeError('addHandler requires \'expressionPrefix\' to be a string of at least 1 character')
     }
@@ -151,13 +146,13 @@ module.exports.addHandler = function addHandler({
     // replacing `!{}`s with `${}`s
     // keep `\{.*\}` greedy,
     // so any nested `!{}`s will be captured as well
-    expression = new RegExp(`([^\\\\]|^)${expressionPrefix}(\\{.*\\})`, 'g')
+    expression = new RegExp(`([^\\\\]|^)${expressionPrefix}(\\{.*?\\})`, 'g')
   } else {
-    expression = skipExpressionPrefix
+    expression = skipPrefixReplacements
   }
 
-  if (typeof value !== 'function') {
-    throw new TypeError('addHandler requires \'value\' to be a function')
+  if (typeof valueMutator !== 'function') {
+    throw new TypeError('addHandler requires \'valueMutator\' to be a function')
   }
 
   // force unredacted on specified environments
@@ -165,18 +160,18 @@ module.exports.addHandler = function addHandler({
 
   handlers.push({
     expression, // RegExp used to replace special literals with vanilla `${}` literals
-    value, // function that can be used to manipulate values found in template literals
+    valueMutator, // function that can be used to manipulate values found in template literals
     redact // if true, will prevent sensitive args from leaking to console
   })
 }
 
 // phase 0: replace standard literals
-addHandler({
-  expressionPrefix: skipExpressionPrefix
+module.exports.addHandler({
+  expressionPrefix: skipPrefixReplacements
 })
 
 // phase 1: replace sensitive literals
-addHandler({
+module.exports.addHandler({
   expressionPrefix: '!',
   redact: true
 })
