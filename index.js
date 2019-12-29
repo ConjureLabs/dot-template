@@ -35,20 +35,22 @@ class Template {
     let resultLogged = template
 
     for (let handlerAttributes of handlers) {
+      const { expression, valueMutator, logMutator } = handlerAttributes
+
       let replacementsMade = false
 
       // copy ref to initial `resultLiteral`
       // since we will use it to determine a `state`
       let resultLiteralInitial = resultLiteral
 
-      if (handlerAttributes.expression === standardTemplate) {
+      if (expression === standardTemplate) {
         // forcing assumption that replacements will be made,
         // since we have no insight when skipping this step
         replacementsMade = true
       } else {
         // running template re-finagling on the 'raw' template ahead-of-time,
         // so that we can skip all other logic if this is a no-op
-        resultLiteral = resultLiteral.replace(handlerAttributes.expression, (_, lead, chunk) => `${lead}$${chunk}`)
+        resultLiteral = resultLiteral.replace(expression, (_, lead, chunk) => `${lead}$${chunk}`)
         replacementsMade = resultLiteral !== resultLiteralInitial
       }
 
@@ -61,7 +63,7 @@ class Template {
       // 2. both templates are the same, but replacements differ (between literal string & console logs)
       // 3. templates have diverged, but replacements are the same
       // 4. templates have diverged, and replacements differ (between literal string & console logs)
-      const mutatorsAreSame = handlerAttributes.valueMutator === handlerAttributes.logMutator
+      const mutatorsAreSame = valueMutator === logMutator
       const state =
         resultLiteralInitial === resultLogged && mutatorsAreSame ? 1 :
         resultLiteralInitial === resultLogged ? 2 :
@@ -72,32 +74,32 @@ class Template {
         // both templates are the same, and replacements are the same (no redactions)
         case 1:
           // skip all `resultLogged` logic and just set it to be the same at the end
-          resultLiteral = resultLogged = templatized(resultLiteral, values, handlerAttributes.valueMutator, ...tailingArgs)
+          resultLiteral = resultLogged = templatized(resultLiteral, values, valueMutator, ...tailingArgs)
           break
 
         // both templates are the same, but one will be redacted
         case 2:
           // `resultLogged` must be processed first, since it uses the current version of `resultLiteral`
-          resultLogged = templatized(resultLiteral, values, handlerAttributes.logMutator, ...tailingArgs)
-          resultLiteral = templatized(resultLiteral, values, handlerAttributes.valueMutator, ...tailingArgs)
+          resultLogged = templatized(resultLiteral, values, logMutator, ...tailingArgs)
+          resultLiteral = templatized(resultLiteral, values, valueMutator, ...tailingArgs)
           break
 
         // templates have diverged, but replacements are the same (no redactions)
         case 3:
           // not checking against `skipReplacements` since that should
           // only be set on the first pass, which will result in state of `1`
-          resultLiteral = templatized(resultLiteral, values, handlerAttributes.valueMutator, ...tailingArgs)
-          resultLogged = resultLogged.replace(handlerAttributes.expression, (_, lead, chunk) => `${lead}$${chunk}`)
-          resultLogged = templatized(resultLogged, values, handlerAttributes.valueMutator, ...tailingArgs)
+          resultLiteral = templatized(resultLiteral, values, valueMutator, ...tailingArgs)
+          resultLogged = resultLogged.replace(expression, (_, lead, chunk) => `${lead}$${chunk}`)
+          resultLogged = templatized(resultLogged, values, valueMutator, ...tailingArgs)
           break
 
         // templates have diverged, and one will be redacted
         case 4:
           // not checking against `skipReplacements` since that should
           // only be set on the first pass, which will result in state of `1`
-          resultLiteral = templatized(resultLiteral, values, handlerAttributes.valueMutator, ...tailingArgs)
-          resultLogged = resultLogged.replace(handlerAttributes.expression, (_, lead, chunk) => `${lead}$${chunk}`)
-          resultLogged = templatized(resultLogged, values, handlerAttributes.logMutator, ...tailingArgs)
+          resultLiteral = templatized(resultLiteral, values, valueMutator, ...tailingArgs)
+          resultLogged = resultLogged.replace(expression, (_, lead, chunk) => `${lead}$${chunk}`)
+          resultLogged = templatized(resultLogged, values, logMutator, ...tailingArgs)
           break
       }
     }
