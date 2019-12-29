@@ -1,5 +1,5 @@
 {
-  "name": "dot-template",
+  "name": "@conjurelabs/dot-template",
   "version": "1.0.0",
   "description": "support for templatized files",
   "main": "index.js",
