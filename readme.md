@@ -44,75 +44,11 @@ async function main() {
 }
 ```
 
-### sanitized logs
-
-similar to a normal `${variable}` expression, you can add a private `!{variable}` so that no sensitive information is leaked when console logging.
-
-say you have a file with some PII replacements:
-
-_template.txt_
-```txt
-Hello !{name},
-
-Thank you for your purchase.
-Your credit card ending in '!{ccLastFour}' will be billed for $!{chargeAmount} within the next ${processingDays} business days.
-If you have any questions or concerns, please contact us at ${phoneNumber}.
-```
-
-and the template is filled with:
-
-```js
-const template = dotTemplate('template.txt')
-const message = await template({
-  name: 'Tim',
-  ccLastFour: 4547,
-  chargeAmount: '22.50',
-  processingDays: 'two',
-  phoneNumber: '555.234.5678'
-})
-```
-
-`message`, when treated as a string, will show as:
-
-```txt
-Hello Tim,
-
-Thank you for your purchase.
-Your credit card ending in '4547' will be billed for $22.50 within the next two business days.
-If you have any questions or concerns, please contact us at 555.234.5678.
-```
-
-but, if you `console.log` the `message`, Node will show:
-
-```txt
-Hello <REDACTED>,
-
-Thank you for your purchase.
-Your credit card ending in '<REDACTED>' will be billed for $<REDACTED> within the next two business days.
-If you have any questions or concerns, please contact us at 555.234.5678.
-```
-
-the caveat with this is that any manipulation or `toString()` calls on `message` will revert back to containing PII.
-
-```js
-const message = await template({
-  name: 'Tim',
-  ccLastFour: 4547,
-  chargeAmount: '22.50',
-  processingDays: 'two',
-  phoneNumber: '555.234.5678'
-})
-
-console.log(message) // contains redactions
-
-console.log('' + message) // nothing redacted
-```
-
 ### scope
 
 since this library relies on [javascript template literals](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals), you can also access globals and other variables in scope.
 
-_tempalte.txt_
+_template.txt_
 ```txt
 Hello ${name},
 
@@ -136,23 +72,9 @@ if you attempt to fill a template, and a variable is missing, a `ReferenceError`
 
 this is consistent with how javascript templates work.
 
-### customization
+## custom template expressions
 
-#### redaction message
-
-by default this library will replace sensitive expressions with `<REDACTED>`.
-
-you can change this by setting `DOT_TEMPLATE_REDACTED_MESSAGE` to your own string.
-
-#### redaction environments
-
-by default `development` will not redact sensitive information.
-
-you can change this by setting `DOT_TEMPLATE_UNREDACTED_ENVS` to a comma-separated list of environments.
-
-### custom template expressions
-
-in addition to `${regular}` and `!{sensitive}` expressions, you can add in your own 'handlers'
+in addition to `${regular}` expressions, you can add in your own 'handlers'
 
 ```js
 const dotTemplate = require('@conjurelabs/dot-template')
@@ -174,7 +96,62 @@ dotTemplate.addHandler({
 })
 ```
 
-handlers are run in-order, after the built-in handlers (`${}`, `!{}`)
+handlers are run in-order, after the built-in `${}`
+
+### usecase : redactions
+
+a simple use of the difference between `valueMutator` and `logMutator` is when you want to redact sensitive data, like PII
+
+you can support this easily:
+
+```js
+dotTemplate.addHandler({
+  expressionPrefix: '!',
+  logMutator: () => '<REDACTED>'
+})
+```
+
+now, if you have a template like:
+
+```txt
+Hello !{name},
+Thank you for your purchase. Your credit card ending in !{ccLastFour} will be charged in two days.
+
+Best,
+${company}
+```
+
+the filled in template will be as expected, while the value logged to terminal will be munged.
+
+```js
+const template = dotTemplate('email.txt')
+
+// content is:
+/*
+Hello Tim,
+Thank you for your purchase. Your credit card ending in 4564 will be charged in two days.
+
+Best,
+Conjure Labs
+ */
+const content = await template({
+  name: 'Tim',
+  ccLastFour: 4564,
+  company: 'Conjure Labs'
+})
+
+// prints to terminal:
+/*
+Hello <REDACTED>,
+Thank you for your purchase. Your credit card ending in <REDACTED> will be charged in two days.
+
+Best,
+Conjure Labs
+ */
+console.log(content)
+```
+
+### usecase : pg sql
 
 say you have a query, and you plan to use it with [the pg module](https://node-postgres.com/)
 
@@ -249,4 +226,5 @@ async function main() {
 
   console.log(res.rows[0])
 }
+main()
 ```
