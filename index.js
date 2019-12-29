@@ -1,14 +1,8 @@
 const fs = require('fs').promises
 const util = require('util')
 
-const { DOT_TEMPLATE_REDACTED_MESSAGE = '<REDACTED>' } = process.env
-const { DOT_TEMPLATE_UNREDACTED_ENVS = 'development' } = process.env
-const { NODE_ENV } = process.env
-
 const handlers = [] // [{ expression: RegExp, valueMutator?: Function, logMutator?: Function }]
 const regExpSpecialChars = /[\\^$*+?.()|[\]{}]/g
-const unedactedEnvs = DOT_TEMPLATE_UNREDACTED_ENVS.replace(/\s*/g, '').split(',')
-const currentEnvRedacted = !unedactedEnvs.includes(NODE_ENV)
 const keyLiteral = Symbol('template with literal values')
 const keyLogged = Symbol('template with mix of literal values and custom logger replacements')
 // `standardTemplate` is assumed to be set only on the first pass
@@ -23,7 +17,6 @@ const templatized = (template, values = {}, mutator, ...tailingArgs) => {
       '`' + template + '`',
     'return tagged(...values)'
   ].join('\n'))
-
 
   const handlerValues = Object.values(values).map(variable => mutator(variable, values, ...tailingArgs))
 
@@ -169,10 +162,4 @@ module.exports.addHandler = function addHandler({
 // phase 0: replace standard literals
 module.exports.addHandler({
   expressionPrefix: standardTemplate
-})
-
-// phase 1: replace sensitive literals
-module.exports.addHandler({
-  expressionPrefix: '!',
-  logMutator: currentEnvRedacted ? _ => DOT_TEMPLATE_REDACTED_MESSAGE : valueNoOp
 })
