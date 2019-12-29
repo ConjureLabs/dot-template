@@ -14,20 +14,20 @@ const keyRedacted = Symbol('template with mix of literal values and redactions')
 const skipPrefixReplacements = Symbol('skip logic to replace prefixes in templates')
 const inspect = Symbol.for('nodejs.util.inspect.custom')
 
-const templatized = (template, vars = {}, valueMutator) => {
+const templatized = (template, values = {}, valueMutator) => {
   const handler = new Function('values', [
-    'const tagged = ( ' + Object.keys(vars).join(', ') + ' ) =>',
+    'const tagged = ( ' + Object.keys(values).join(', ') + ' ) =>',
       '`' + template + '`',
     'return tagged(...values)'
   ].join('\n'))
 
-  const values = Object.values(vars).map(variable => valueMutator(variable))
+  const values = Object.values(values).map(variable => valueMutator(variable))
 
   return handler(values)
 }
 
 class Template {
-  constructor(template, vars) {
+  constructor(template, values) {
     let resultRaw = template
     let resultRedacted = template
 
@@ -69,19 +69,19 @@ class Template {
         // both templates are the same, and replacements are the same (no redactions)
         case 1:
           // skip all `resultRedacted` logic and just set it to be the same at the end
-          resultRaw = resultRedacted = templatized(resultRaw, vars, handlerAttributes.valueMutator)
+          resultRaw = resultRedacted = templatized(resultRaw, values, handlerAttributes.valueMutator)
           break
 
         // both templates are the same, but one will be redacted
         case 2:
           // `resultRedacted` must be processed first, since it uses the current version of `resultRaw`
-          resultRedacted = templatized(resultRaw, vars, variable => DOT_TEMPLATE_REDACTED_MESSAGE)
-          resultRaw = templatized(resultRaw, vars, handlerAttributes.valueMutator)
+          resultRedacted = templatized(resultRaw, values, variable => DOT_TEMPLATE_REDACTED_MESSAGE)
+          resultRaw = templatized(resultRaw, values, handlerAttributes.valueMutator)
           break
 
         // templates have diverged, but replacements are the same (no redactions)
         case 3:
-          resultRaw = templatized(resultRaw, vars, handlerAttributes.valueMutator)
+          resultRaw = templatized(resultRaw, values, handlerAttributes.valueMutator)
           // technically `skipReplacements` should only be true on
           // the first pass, in which case this state is unreachable,
           // so this check is unnecessary,
@@ -89,12 +89,12 @@ class Template {
           if (!skipReplacements) {
             resultRedacted = resultRedacted.replace(handlerAttributes.expression, (_, lead, chunk) => `${lead}$${chunk}`)
           }
-          resultRedacted = templatized(resultRedacted, vars, handlerAttributes.valueMutator)
+          resultRedacted = templatized(resultRedacted, values, handlerAttributes.valueMutator)
           break
 
         // templates have diverged, and one will be redacted
         case 4:
-          resultRaw = templatized(resultRaw, vars, handlerAttributes.valueMutator)
+          resultRaw = templatized(resultRaw, values, handlerAttributes.valueMutator)
           // technically `skipReplacements` should only be true on
           // the first pass, in which case this state is unreachable,
           // so this check is unnecessary,
@@ -102,7 +102,7 @@ class Template {
           if (!skipReplacements) {
             resultRedacted = resultRedacted.replace(handlerAttributes.expression, (_, lead, chunk) => `${lead}$${chunk}`)
           }
-          resultRedacted = templatized(resultRedacted, vars, variable => DOT_TEMPLATE_REDACTED_MESSAGE)
+          resultRedacted = templatized(resultRedacted, values, variable => DOT_TEMPLATE_REDACTED_MESSAGE)
           break
       }
     }
@@ -123,8 +123,8 @@ class Template {
 module.exports = function dotTemplate(path) {
   const template = fs.readFile(path, 'utf8')
 
-  return async function prepare(vars) {
-    return new Template(await template, vars)
+  return async function prepare(values) {
+    return new Template(await template, values)
   }
 }
 
