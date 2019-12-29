@@ -31,13 +31,12 @@ you can then use `dot-template` to pull up the file and pass arguments
 
 ```js
 const dotTemplate = require('@conjurelabs/dot-template')
-const path = require('path')
 
 async function main() {
-  const template = dotTemplate(path.resolve(__dirname, 'index.html'))
+  const template = dotTemplate('index.html')
 
   const result = await template({
-    tite: 'Conjure Labs',
+    title: 'Conjure Labs',
     name: 'Tim'
   })
 
@@ -63,7 +62,7 @@ If you have any questions or concerns, please contact us at ${phoneNumber}.
 and the template is filled with:
 
 ```js
-const template = dotTemplate(path.resolve(__dirname, 'template.txt'))
+const template = dotTemplate('template.txt')
 const message = await template({
   name: 'Tim',
   ccLastFour: 4547,
@@ -125,7 +124,7 @@ the following fills the template as expected:
 ```js
 const companyName = 'Conjure Labs'
 
-const template = dotTemplate(path.resolve(__dirname, 'template.txt'))
+const template = dotTemplate('template.txt')
 const message = await template({
   name: 'Tim'
 })
