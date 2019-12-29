@@ -96,6 +96,8 @@ dotTemplate.addHandler({
 })
 ```
 
+handlers are run in-order, after the built-in `${}`
+
 ### usecase : redactions
 
 a simple use of the difference between `valueMutator` and `logMutator` is when you want to redact sensitive data, like PII
@@ -150,8 +152,6 @@ console.log(content)
 ```
 
 ### usecase : pg sql
-
-handlers are run in-order, after the built-in `${}`
 
 say you have a query, and you plan to use it with [the pg module](https://node-postgres.com/)
 
