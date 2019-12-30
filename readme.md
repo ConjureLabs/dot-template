@@ -85,14 +85,16 @@ dotTemplate.addHandler({
   expressionPrefix: '@',
 
   // mutates each value as it goes into the template
-  // templateArgs is every argument passed to template()
-  valueMutator: (value, ...templateArgs) => value.toUppercase(),
+  // templateArgs is the original {} values passed to template()
+  // additionalArgs is any other trailing args passed to template()
+  valueMutator: (value, templateArgs, ...additionalArgs) => value.toUppercase(),
 
   // mutates each value, only when being console.log'd
   // if this function is not set, the default return will
   // be the value given by `valueMutator`
-  // templateArgs is every argument passed to template()
-  logMutator: (value, ...templateArgs) => value.toLowercase()
+  // templateArgs is the original {} values passed to template()
+  // additionalArgs is any other trailing args passed to template()
+  logMutator: (value, templateArgs, ...additionalArgs) => value.toLowercase()
 })
 ```
 
