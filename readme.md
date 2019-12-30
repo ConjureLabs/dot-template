@@ -7,7 +7,7 @@ this library uses built-in [javascript template literals](https://developer.mozi
 ## install
 
 ```
-npm i @conjurelabs/dot-template
+npm install @conjurelabs/dot-template
 ```
 
 ## use
