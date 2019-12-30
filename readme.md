@@ -172,7 +172,7 @@ const dotTemplate = require('@conjurelabs/dot-template')
 const { Client } = require('pg')
 
 const client = new Client()
-await client.connect()
+client.connect()
 
 // using '$@' to denote values where the
 // literal result should be a number like '$1' (indexed)
