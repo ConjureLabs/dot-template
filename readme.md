@@ -86,7 +86,7 @@ dotTemplate.addHandler({
 
   // mutates each value as it goes into the template
   // templateArgs is every argument passed to template()
-  valueMutator: (value, ...templateArgs) => value.toUppercase()
+  valueMutator: (value, ...templateArgs) => value.toUppercase(),
 
   // mutates each value, only when being console.log'd
   // if this function is not set, the default return will
