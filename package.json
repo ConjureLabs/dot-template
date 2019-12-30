@@ -6,8 +6,13 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "repository": "ConjureLabs/dot-template",
-  "bugs": "https://github.com/ConjureLabs/dot-template/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ConjureLabs/dot-template"
+  },
+  "bugs": {
+    "url": "https://github.com/ConjureLabs/dot-template/issues",
+  },
   "homepage": "https://github.com/ConjureLabs/dot-template#readme",
   "license": "MIT",
   "files": [
