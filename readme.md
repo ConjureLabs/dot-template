@@ -94,7 +94,24 @@ dotTemplate.addHandler({
   // be the value given by `valueMutator`
   // templateArgs is the original {} values passed to template()
   // additionalArgs is any other trailing args passed to template()
-  logMutator: (value, templateArgs, ...additionalArgs) => value.toLowercase()
+  logMutator: (value, templateArgs, ...additionalArgs) => value.toLowercase(),
+
+  // mutates the entire values object,
+  // for both applied values and logged values
+  // useful if you need to Proxy `values
+  // type is either 'applied' or 'logged'
+  // additionalArgs is any other trailing args passed to template()
+  valuesObjectMutator: (values, type, ...additionalArgs) => new Proxy(value, {
+    get: (target, property) => {
+      const actualValue = Reflect.get(target, property)
+
+      if (type === 'logged') {
+        return actualValue.toLowercase()
+      } else {
+        return actualValue.toUppercase()
+      }
+    }
+  })
 })
 ```
 
@@ -155,78 +172,4 @@ console.log(content)
 
 ### usecase : pg sql
 
-say you have a query, and you plan to use it with [the pg module](https://node-postgres.com/)
-
-the `pg` module uses `$1` replacements - you would want the real value of your template to be built with these integers, while printing actual or redacted values to the terminal.
-
-_query.sql_
-```sql
-select *
-from users
-where id = $@{id}
-and name = !@{name}
-```
-
-```js
-const dotTemplate = require('@conjurelabs/dot-template')
-const { Client } = require('pg')
-
-const client = new Client()
-client.connect()
-
-// using '$@' to denote values where the
-// literal result should be a number like '$1' (indexed)
-// but the actual value sould be printed to terminal
-dotTemplate.addHandler({
-  expressionPrefix: '$@',
-  valueMutator: (value, templateArgs, pgQueryArgs) => {
-    const index = pgQueryArgs.indexOf(value)
-    return `$${index + 1}`
-  },
-  logMutator: (value, templateArgs) => value
-})
-
-// using '!@' to denote values where the
-// literal result should be a number like '$1' (indexed)
-// but the value printed to terminal should be redacted
-dotTemplate.addHandler({
-  expressionPrefix: '!@',
-  valueMutator: (value, templateArgs, pgQueryArgs) => {
-    const index = pgQueryArgs.indexOf(value)
-    return `$${index + 1}`
-  },
-  logMutator: (value, templateArgs) => '<REDACTED>'
-})
-
-async function main() {
-  const template = dotTemplate('query.sql')
-
-  const pgQueryArgs = [4025, 'Tim']
-
-  const queryString = await template({
-    id: 4025,
-    name: 'Tim'
-  }, pgQueryArgs)
-
-  // prints:
-  /*
-    select *
-    from users
-    where id = 4025
-    and name = <REDACTED>
-  */
-  console.log(queryString)
-
-  // passes query string:
-  /*
-    select *
-    from users
-    where id = $1
-    and name = $2
-  */
-  const res = await client.query(queryString, pgQueryArgs)
-
-  console.log(res.rows[0])
-}
-main()
-```
+see [pg-dot-template](https://github.com/ConjureLabs/pg-dot-template) for more
