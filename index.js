@@ -3,13 +3,13 @@ const util = require('util')
 
 const handlers = [] // [{ expression: RegExp, valueMutator?: Function, logMutator?: Function }]
 const regExpSpecialChars = /[\\^$*+?.()|[\]{}]/g
-const keyLiteral = Symbol('template with literal values')
-const keyLogged = Symbol('template with mix of literal values and custom logger replacements')
+const keyApplied = Symbol('template with applied values')
+const keyLogged = Symbol('template with mix of applied values and custom logger replacements')
 // `standardTemplate` is assumed to be set only on the first pass
 const standardTemplate = Symbol('skip logic to replace prefixes in templates')
 const inspect = Symbol.for('nodejs.util.inspect.custom')
 
-const valueNoOp = value => value
+const selfReturnNoOp = arg => arg
 
 const templatized = (template, values = {}, mutator, ...tailingArgs) => {
   const handler = new Function('values', [
@@ -25,17 +25,17 @@ const templatized = (template, values = {}, mutator, ...tailingArgs) => {
 
 class Template {
   constructor(template, values, ...tailingArgs) {
-    let resultLiteral = template
+    let resultApplied = template
     let resultLogged = template
 
     for (let handlerAttributes of handlers) {
-      const { expression, valueMutator, logMutator } = handlerAttributes
+      const { expression, valueMutator, valuesObjectMutator, logMutator } = handlerAttributes
 
       let replacementsMade = false
 
-      // copy ref to initial `resultLiteral`
+      // copy ref to initial `resultApplied`
       // since we will use it to determine a `state`
-      let resultLiteralInitial = resultLiteral
+      let resultAppliedInitial = resultApplied
 
       if (expression === standardTemplate) {
         // forcing assumption that replacements will be made,
@@ -44,8 +44,8 @@ class Template {
       } else {
         // running template re-finagling on the 'raw' template ahead-of-time,
         // so that we can skip all other logic if this is a no-op
-        resultLiteral = resultLiteral.replace(expression, (_, lead, chunk) => `${lead}$${chunk}`)
-        replacementsMade = resultLiteral !== resultLiteralInitial
+        resultApplied = resultApplied.replace(expression, (_, lead, chunk) => `${lead}$${chunk}`)
+        replacementsMade = resultApplied !== resultAppliedInitial
       }
 
       if (replacementsMade === false) {
@@ -59,51 +59,47 @@ class Template {
       // 4. templates have diverged, and replacements differ (between literal string & console logs)
       const mutatorsAreSame = valueMutator === logMutator
       const state =
-        resultLiteralInitial === resultLogged && mutatorsAreSame ? 1 :
-        resultLiteralInitial === resultLogged ? 2 :
+        resultAppliedInitial === resultLogged && mutatorsAreSame ? 1 :
+        resultAppliedInitial === resultLogged ? 2 :
         mutatorsAreSame ? 3 :
         4
 
       switch (state) {
         // both templates are the same, and replacements are the same
         case 1:
-          // skip all `resultLogged` logic and just set it to be the same at the end
-          resultLiteral = resultLogged = templatized(resultLiteral, values, valueMutator, ...tailingArgs)
-          break
-
         // both templates are the same, but replacements differ (between literal string & console logs)
         case 2:
-          // `resultLogged` must be processed first, since it uses the current version of `resultLiteral`
-          resultLogged = templatized(resultLiteral, values, logMutator, ...tailingArgs)
-          resultLiteral = templatized(resultLiteral, values, valueMutator, ...tailingArgs)
+          // `resultLogged` must be processed first, since it uses the current version of `resultApplied`
+          resultLogged = templatized(resultApplied, valuesObjectMutator(values, 'logged', ...tailingArgs), logMutator, ...tailingArgs)
+          resultApplied = templatized(resultApplied, valuesObjectMutator(values, 'applied', ...tailingArgs), valueMutator, ...tailingArgs)
           break
 
         // templates have diverged, but replacements are the same
         case 3:
           // not checking against `skipReplacements` since that should
           // only be set on the first pass, which will result in state of `1`
-          resultLiteral = templatized(resultLiteral, values, valueMutator, ...tailingArgs)
+          resultApplied = templatized(resultApplied, valuesObjectMutator(values, 'applied', ...tailingArgs), valueMutator, ...tailingArgs)
           resultLogged = resultLogged.replace(expression, (_, lead, chunk) => `${lead}$${chunk}`)
-          resultLogged = templatized(resultLogged, values, valueMutator, ...tailingArgs)
+          resultLogged = templatized(resultLogged, valuesObjectMutator(values, 'logged', ...tailingArgs), valueMutator, ...tailingArgs)
           break
 
         // templates have diverged, and replacements differ (between literal string & console logs)
         case 4:
           // not checking against `skipReplacements` since that should
           // only be set on the first pass, which will result in state of `1`
-          resultLiteral = templatized(resultLiteral, values, valueMutator, ...tailingArgs)
+          resultApplied = templatized(resultApplied, valuesObjectMutator(values, 'applied', ...tailingArgs), valueMutator, ...tailingArgs)
           resultLogged = resultLogged.replace(expression, (_, lead, chunk) => `${lead}$${chunk}`)
-          resultLogged = templatized(resultLogged, values, logMutator, ...tailingArgs)
+          resultLogged = templatized(resultLogged, valuesObjectMutator(values, 'logged', ...tailingArgs), logMutator, ...tailingArgs)
           break
       }
     }
 
-    this[keyLiteral] = resultLiteral
+    this[keyApplied] = resultApplied
     this[keyLogged] = resultLogged
   }
 
   toString() {
-    return this[keyLiteral]
+    return this[keyApplied]
   }
 
   [util.inspect.custom](depth, options) {
@@ -121,7 +117,8 @@ module.exports = function dotTemplate(path) {
 
 module.exports.addHandler = function addHandler({
   expressionPrefix,
-  valueMutator = valueNoOp,
+  valueMutator = selfReturnNoOp,
+  valuesObjectMutator = selfReturnNoOp,
   logMutator
 }) {
   let expression
@@ -148,18 +145,23 @@ module.exports.addHandler = function addHandler({
     throw new TypeError('addHandler requires \'valueMutator\' to be a function')
   }
 
+  if (typeof valuesObjectMutator !== 'function') {
+    throw new TypeError('addHandler requires \'valuesObjectMutator\' to be a function')
+  }
+
   if (typeof logMutator !== 'function') {
     throw new TypeError('addHandler requires \'logMutator\' to be a function')
   }
 
   handlers.push({
-    expression, // RegExp used to replace special literals with vanilla `${}` literals
-    valueMutator, // function that can be used to manipulate values found in template literals
+    expression, // RegExp used to replace special values with vanilla `${}` values
+    valueMutator, // function that can be used to manipulate template values
+    valuesObjectMutator, // function that can be used to override what values object is used for replacements
     logMutator // function that can be used to manipulate how values are printed to console
   })
 }
 
-// phase 0: replace standard literals
+// phase 0: replace standard applied values (e.g. `${}`)
 module.exports.addHandler({
   expressionPrefix: standardTemplate
 })
