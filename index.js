@@ -102,6 +102,10 @@ class Template {
     return this[keyApplied]
   }
 
+  get sanitized() {
+    return this[keyLogged]
+  }
+
   [util.inspect.custom](depth, options) {
     return options.stylize(this[keyLogged], 'string')
   }
