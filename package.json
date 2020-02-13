@@ -1,6 +1,6 @@
 {
   "name": "@conjurelabs/dot-template",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "support for templatized files",
   "main": "index.js",
   "scripts": {
