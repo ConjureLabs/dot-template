@@ -35,7 +35,7 @@ class Template {
     // joined, by default, with `, `
     // a custome join token can be set via:
     // @var(embeddedTemplate)&(joinToken)
-    template = template.replace(/([^\\]|^)@(\w+)\((.*?)\)(?:&\(([^)]+)\))?/g, (_, lead, key, subtemplate, join = ', ') => {
+    template = template.replace(/([^\\]|^)@(\w+)\((.*?)\)(?:&\(([^)]*)\))?/g, (_, lead, key, subtemplate, join = ', ') => {
       if (!values.hasOwnProperty(key)) {
         return lead
       }

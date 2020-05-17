@@ -44,6 +44,50 @@ async function main() {
 }
 ```
 
+### subtemplates
+
+you can embed subtemplates as well
+
+_index.html_
+```html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>${title}</title>
+  </head>
+  <body>
+    @divs(<div>${content}</div>)&()
+  </body>
+</html>
+```
+
+in this example `divs` is expected to be an array of values, that will be passed into the subtemplate `<div>${content}</div>`
+
+```js
+const dotTemplate = require('@conjurelabs/dot-template')
+
+async function main() {
+  const template = dotTemplate('index.html')
+
+  const result = await template({
+    title: 'Conjure Labs',
+    divs: [{
+      content: 'Tim'
+    }, {
+      content: 'Marshall'
+    }]
+  })
+
+  return result
+}
+```
+
+this will end up generating `<div>Tim</div><div>Marshall</div>`
+
+the `&()` is telling the subtemplate to join with an empty string
+
+you can omit `&()` - by default it will join subtemplates with `, `
+
 ### scope
 
 since this library relies on [javascript template literals](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals), you can also access globals and other variables in scope.
