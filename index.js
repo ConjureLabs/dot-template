@@ -25,6 +25,31 @@ const templatized = (template, values = {}, mutator, ...tailingArgs) => {
 
 class Template {
   constructor(template, values, ...tailingArgs) {
+    // before handling typical template replacements,
+    // first going to check for embedded templates
+    // ---
+    // matching @var(embeddedTemplate)
+    // `var` should be an array, within `values`
+    // each cell of `var` will be used to render the subtemplate
+    // ---
+    // joined, by default, with `, `
+    // a custome join token can be set via:
+    // @var(embeddedTemplate)&(joinToken)
+    template = template.replace(/([^\\]|^)@(\w+)\((.*?)\)(?:&\(([^)]+)\))?/g, (_, lead, key, subtemplate, join = ', ') => {
+      if (!values.hasOwnProperty(key)) {
+        return lead
+      }
+
+      if (!Array.isArray(values[key])) {
+        throw new Error(`Expected values.${key} to be an array`)
+      }
+
+      return lead + values[key].map(subValues => {
+        const subtemplateInstance = new Template(subtemplate, subValues)
+        return subtemplateInstance.toString()
+      }).join(join)
+    })
+
     let resultApplied = template
     let resultLogged = template
 
