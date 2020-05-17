@@ -45,7 +45,7 @@ class Template {
       }
 
       return lead + values[key].map(subValues => {
-        const subtemplateInstance = new Template(subtemplate, subValues)
+        const subtemplateInstance = new Template(subtemplate, subValues, ...tailingArgs)
         return subtemplateInstance.toString()
       }).join(join)
     })
