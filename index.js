@@ -1,6 +1,7 @@
 const fs = require('fs').promises
 const util = require('util')
 
+const allExpressionPrefixes = ['\\$']
 const handlers = [] // [{ expression: RegExp, valueMutator?: Function, logMutator?: Function }]
 const regExpSpecialChars = /[\\^$*+?.()|[\]{}]/g
 const keyApplied = Symbol('template with applied values')
@@ -23,8 +24,24 @@ const templatized = (template, values = {}, mutator, ...tailingArgs) => {
   return handler(handlerValues)
 }
 
+const uniquePrefix = '____generated_'
+function appendUniqueValueKey(values, newValue, keyIndex = 0) {
+  while (values.hasOwnProperty(`${uniquePrefix}${keyIndex}`)) {
+    keyIndex++
+  }
+
+  const newKey = `${uniquePrefix}${keyIndex}`
+  values[newKey] = newValue
+  return [
+    newKey,
+    keyIndex + 1
+  ]
+}
+
 class Template {
-  constructor(template, values, ...tailingArgs) {
+  constructor(template, valuesInput, ...tailingArgs) {
+    const values = { ...valuesInput }
+
     // before handling typical template replacements,
     // first going to check for embedded templates
     // ---
@@ -35,6 +52,8 @@ class Template {
     // joined, by default, with `, `
     // a custome join token can be set via:
     // @var(embeddedTemplate)&(joinToken)
+    let subtemplateIndexIncrement = 0
+    let allExpressionsMatcher
     template = template.replace(/([^\\]|^)@(\w+)\((.*?)\)(?:&\(([^)]*)\))?/g, (_, lead, key, subtemplate, join = ', ') => {
       if (!values.hasOwnProperty(key)) {
         return lead
@@ -44,9 +63,14 @@ class Template {
         throw new Error(`Expected values.${key} to be an array`)
       }
 
-      return lead + values[key].map(subValues => {
-        const subtemplateInstance = new Template(subtemplate, subValues, ...tailingArgs)
-        return subtemplateInstance.toString()
+      allExpressionsMatcher = allExpressionsMatcher || new RegExp(`([^\\\\]|^)(${allExpressionPrefixes.join('|')})\\{(.*?)\\}`, 'g')
+
+      return lead + values[key].map((subValues, index) => {
+        return subtemplate.replace(allExpressionsMatcher, (_, lead, expressionPrefix, valueKey) => {
+          const [newKey, newIncrementIndex] = appendUniqueValueKey(values, subValues[valueKey], subtemplateIndexIncrement)
+          subtemplateIndexIncrement = newIncrementIndex
+          return `${lead}${expressionPrefix}{${newKey}}`
+        })
       }).join(join)
     })
 
@@ -140,7 +164,7 @@ module.exports = function dotTemplate(path) {
   const template = fs.readFile(path, 'utf8')
 
   return async function prepare(values, ...tailingArgs) {
-    return new Template(await template, values, ...tailingArgs)
+    return new Template(await template, values, null, ...tailingArgs)
   }
 }
 
@@ -166,6 +190,8 @@ module.exports.addHandler = function addHandler({
     // keep `\{.*\}` greedy,
     // so any nested `!{}`s will be captured as well
     expression = new RegExp(`([^\\\\]|^)${expressionPrefix}(\\{.*?\\})`, 'g')
+
+    allExpressionPrefixes.push(expressionPrefix)
   } else {
     expression = standardTemplate
   }
