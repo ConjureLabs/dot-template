@@ -54,7 +54,7 @@ class Template {
     // @var(embeddedTemplate)&(joinToken)
     let subtemplateIndexIncrement = 0
     let allExpressionsMatcher
-    template = template.replace(/([^\\]|^)@(\w+)\((.*?)\)(?:&\(([^)]*)\))?/g, (_, lead, key, subtemplate, join = ', ') => {
+    template = template.replace(/([^\\]|^)@(\w+)\(((?:(?:\(.*\))|[^)])*?)\)(?:&\(([^)]*)\))?/g, (_, lead, key, subtemplate, join = ', ') => {
       if (!values.hasOwnProperty(key)) {
         return lead
       }
