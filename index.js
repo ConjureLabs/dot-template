@@ -187,8 +187,6 @@ module.exports.addHandler = function addHandler({
 
     expressionPrefix = expressionPrefix.replace(regExpSpecialChars, '\\$&')
     // replacing `!{}`s with `${}`s
-    // keep `\{.*\}` greedy,
-    // so any nested `!{}`s will be captured as well
     expression = new RegExp(`([^\\\\]|^)${expressionPrefix}(\\{.*?\\})`, 'g')
 
     allExpressionPrefixes.push(expressionPrefix)
