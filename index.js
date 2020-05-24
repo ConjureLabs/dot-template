@@ -45,15 +45,33 @@ class Template {
     // before handling typical template replacements,
     // first going to check for embedded templates
     // ---
-    // matching @var(embeddedTemplate)
-    // `var` should be an array, within `values`
-    // each cell of `var` will be used to render the subtemplate
+    // matching @key(embeddedTemplate)
+    // `key` should pair to an array, within `values`
+    // each cell of `key` will be used to render the subtemplate
     // ---
     // joined, by default, with `, `
     // a custome join token can be set via:
-    // @var(embeddedTemplate)&(joinToken)
+    // @key(embeddedTemplate)&(joinToken)
     let subtemplateIndexIncrement = 0
     let allExpressionsMatcher
+
+    // this regexp matches something like:
+    //   @key(${thing1} is ${thing2})
+    // or
+    //   @key(${thing1} is ${thing2})&(, )
+    //
+    //   ([^\\]|^)                start, as long as not an escaped \@
+    //   @(\w+)                   @key
+    //   \((                      start of (<content>) matching
+    //     (?:                    start of (non-remembered) patterns
+    //       (?:\(.*\))           matching parenthetical contents, like (something)
+    //       |                    or
+    //       [^)]                 non-terminating characters
+    //     )*?                    end of (non-remembered) patterns, with non-greedy matching
+    //   )\)                      end of (<content>) matching
+    //   \((.*)\)                 contents within parenthesis - where only the contents inside are remembered
+    //   (?:&\(([^)]*)\))?        matches something like &(, ) - which may or may not tail the previous
+    //                            remembers only the content within the parenthesis
     template = template.replace(/([^\\]|^)@(\w+)\(((?:(?:\(.*\))|[^)])*?)\)(?:&\(([^)]*)\))?/g, (_, lead, key, subtemplate, join = ', ') => {
       if (!values.hasOwnProperty(key)) {
         return lead
