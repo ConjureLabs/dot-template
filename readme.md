@@ -99,9 +99,9 @@ this is consistent with how javascript templates work.
 in addition to `${regular}` expressions, you can add in your own 'handlers'
 
 ```js
-import { addHandler } from '@conjurelabs/dot-template'
+import dotTemplate from '@conjurelabs/dot-template'
 
-addHandler({
+dotTemplate.addHandler({
   // `expressionPrefix` is required
   // this example would support `@{expression}`s
   expressionPrefix: '@',
@@ -146,7 +146,7 @@ a simple use of the difference between `valueMutator` and `logMutator` is when y
 you can support this easily:
 
 ```js
-addHandler({
+dotTemplate.addHandler({
   expressionPrefix: '!',
   logMutator: () => '<REDACTED>'
 })

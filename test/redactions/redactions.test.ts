@@ -1,10 +1,10 @@
-import dotTemplate, { addHandler } from '../../src/'
+import dotTemplate from '../../src/'
 import { readFile } from 'fs/promises'
 import path from 'path'
 
 describe('basic usage', () => {
   test('value mutator should work as expected', async () => {
-    addHandler({
+    dotTemplate.addHandler({
       expressionPrefix: '!',
       valueMutator: () => '>>REDACTED<<'
     })
