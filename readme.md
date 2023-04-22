@@ -30,7 +30,7 @@ _index.html_
 you can then use `dot-template` to pull up the file and pass arguments
 
 ```js
-const dotTemplate = require('@conjurelabs/dot-template')
+import dotTemplate from '@conjurelabs/dot-template'
 
 async function main() {
   const template = dotTemplate('index.html')
@@ -64,7 +64,7 @@ _index.html_
 in this example `divs` is expected to be an array of values, that will be passed into the subtemplate `<div>${content}</div>`
 
 ```js
-const dotTemplate = require('@conjurelabs/dot-template')
+import dotTemplate from '@conjurelabs/dot-template'
 
 async function main() {
   const template = dotTemplate('index.html')
@@ -121,9 +121,9 @@ this is consistent with how javascript templates work.
 in addition to `${regular}` expressions, you can add in your own 'handlers'
 
 ```js
-const dotTemplate = require('@conjurelabs/dot-template')
+import { addHandler } from '@conjurelabs/dot-template'
 
-dotTemplate.addHandler({
+addHandler({
   // `expressionPrefix` is required
   // this example would support `@{expression}`s
   expressionPrefix: '@',
@@ -168,7 +168,7 @@ a simple use of the difference between `valueMutator` and `logMutator` is when y
 you can support this easily:
 
 ```js
-dotTemplate.addHandler({
+addHandler({
   expressionPrefix: '!',
   logMutator: () => '<REDACTED>'
 })
