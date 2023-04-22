@@ -88,28 +88,6 @@ the `&()` is telling the subtemplate to join with an empty string
 
 you can omit `&()` - by default it will join subtemplates with `, `
 
-### scope
-
-since this library relies on [javascript template literals](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals), you can also access globals and other variables in scope.
-
-_template.txt_
-```txt
-Hello ${name},
-
-Thank you for visiting ${companyName}
-```
-
-the following fills the template as expected:
-
-```js
-const companyName = 'Conjure Labs'
-
-const template = dotTemplate('template.txt')
-const message = await template({
-  name: 'Tim'
-})
-```
-
 ### missing variables
 
 if you attempt to fill a template, and a variable is missing, a `ReferenceError` will be thrown.
