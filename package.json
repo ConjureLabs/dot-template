@@ -18,7 +18,7 @@
   "homepage": "https://github.com/ConjureLabs/dot-template#readme",
   "license": "MIT",
   "files": [
-    "index.js"
+    "dist/*"
   ],
   "engines": {
     "node": ">=16.0.0"
