@@ -190,7 +190,7 @@ class Template {
   }
 }
 
-module.exports = function dotTemplate(path: string) {
+export default function dotTemplate(path: string) {
   const template = readFile(path, 'utf8')
 
   return async function prepare(values: Record<string, unknown>, ...tailingArgs: unknown[]) {
@@ -198,16 +198,16 @@ module.exports = function dotTemplate(path: string) {
   }
 }
 
-module.exports.addHandler = function addHandler({
+export function addHandler({
   expressionPrefix,
   valueMutator = selfReturnNoOp,
   valuesObjectMutator = selfReturnNoOp,
   logMutator
 }: {
   expressionPrefix: string | typeof standardTemplate,
-  valueMutator: ValueMutator,
-  valuesObjectMutator: ObjectMutator,
-  logMutator: ValueMutator
+  valueMutator?: ValueMutator,
+  valuesObjectMutator?: ObjectMutator,
+  logMutator?: ValueMutator
 }) {
   let expression
 
@@ -250,7 +250,7 @@ module.exports.addHandler = function addHandler({
 }
 
 // phase 0: replace standard applied values (e.g. `${}`)
-module.exports.addHandler({
+addHandler({
   expressionPrefix: standardTemplate
 })
 
