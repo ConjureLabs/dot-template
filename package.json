@@ -2,7 +2,7 @@
   "name": "@conjurelabs/dot-template",
   "version": "3.0.0",
   "description": "support for templatized files",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
     "prepare": "npm run build",
