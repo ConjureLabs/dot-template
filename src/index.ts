@@ -1,15 +1,7 @@
+import type { Handler, ObjectMutator, ValueMutator } from '@conjurelabs/dot-template'
+
 import { readFile } from 'fs/promises'
 import { inspect, InspectOptionsStylized } from 'util'
-
-type Mutator = (value: unknown, templateArgs: Record<string, unknown>, ...additionalArgs: unknown[]) => unknown
-type ObjectMutator = (values: Record<string, unknown>, type: 'applied' | 'logged', ...additionalArgs: unknown[]) => Record<string, unknown>
-
-interface Handler {
-  expression: RegExp | typeof standardTemplate
-  valueMutator: Mutator
-  valuesObjectMutator: ObjectMutator
-  logMutator: Mutator
-}
 
 const allExpressionPrefixes: string[] = ['\\$']
 const handlers: Handler[] = []
@@ -21,7 +13,7 @@ const standardTemplate = Symbol('skip logic to replace prefixes in templates')
 
 const selfReturnNoOp = (arg: any) => arg
 
-const templatized = (template: string, values: Record<string, unknown> = {}, mutator: Mutator, ...tailingArgs: unknown[]): string => {
+const templatized = (template: string, values: Record<string, unknown> = {}, mutator: ValueMutator, ...tailingArgs: unknown[]): string => {
   const handler = new Function('values', [
     'const tagged = ( ' + Object.keys(values).join(', ') + ' ) =>',
       '`' + template + '`',
@@ -213,9 +205,9 @@ module.exports.addHandler = function addHandler({
   logMutator
 }: {
   expressionPrefix: string | typeof standardTemplate,
-  valueMutator: Mutator,
+  valueMutator: ValueMutator,
   valuesObjectMutator: ObjectMutator,
-  logMutator: Mutator
+  logMutator: ValueMutator
 }) {
   let expression
 
