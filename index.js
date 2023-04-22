@@ -8,7 +8,6 @@ const keyApplied = Symbol('template with applied values')
 const keyLogged = Symbol('template with mix of applied values and custom logger replacements')
 // `standardTemplate` is assumed to be set only on the first pass
 const standardTemplate = Symbol('skip logic to replace prefixes in templates')
-const inspect = Symbol.for('nodejs.util.inspect.custom')
 
 const selfReturnNoOp = arg => arg
 
