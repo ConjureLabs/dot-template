@@ -2,11 +2,12 @@ import { readFile } from 'fs/promises'
 import { inspect, InspectOptionsStylized } from 'util'
 
 type Mutator = (value: unknown, templateArgs: Record<string, unknown>, ...additionalArgs: unknown[]) => unknown
+type ObjectMutator = (values: Record<string, unknown>, type: 'applied' | 'logged', ...additionalArgs: unknown[]) => Record<string, unknown>
 
 interface Handler {
   expression: RegExp | typeof standardTemplate
   valueMutator: Mutator
-  valuesObjectMutator: (values: Record<string, unknown>, type: 'applied' | 'logged', ...additionalArgs: unknown[]) => Record<string, unknown>
+  valuesObjectMutator: ObjectMutator
   logMutator: Mutator
 }
 
@@ -18,7 +19,7 @@ const keyLogged = Symbol('template with mix of applied values and custom logger 
 // `standardTemplate` is assumed to be set only on the first pass
 const standardTemplate = Symbol('skip logic to replace prefixes in templates')
 
-const selfReturnNoOp = (arg: unknown) => arg
+const selfReturnNoOp = (arg: any) => arg
 
 const templatized = (template: string, values: Record<string, unknown> = {}, mutator: Mutator, ...tailingArgs: unknown[]): string => {
   const handler = new Function('values', [
@@ -196,4 +197,68 @@ class Template {
     return options.stylize(this[keyLogged], 'string')
   }
 }
+
+module.exports = function dotTemplate(path: string) {
+  const template = readFile(path, 'utf8')
+
+  return async function prepare(values: Record<string, unknown>, ...tailingArgs: unknown[]) {
+    return new Template(await template, values, null, ...tailingArgs)
+  }
+}
+
+module.exports.addHandler = function addHandler({
+  expressionPrefix,
+  valueMutator = selfReturnNoOp,
+  valuesObjectMutator = selfReturnNoOp,
+  logMutator
+}: {
+  expressionPrefix: string | typeof standardTemplate,
+  valueMutator: Mutator,
+  valuesObjectMutator: ObjectMutator,
+  logMutator: Mutator
+}) {
+  let expression
+
+  if (logMutator === undefined) {
+    logMutator = valueMutator
+  }
+
+  if (expressionPrefix !== standardTemplate) {
+    if (typeof expressionPrefix !== 'string' || expressionPrefix.length < 1) {
+      throw new TypeError('addHandler requires \'expressionPrefix\' to be a string of at least 1 character')
+    }
+
+    expressionPrefix = expressionPrefix.replace(regExpSpecialChars, '\\$&')
+    // replacing `!{}`s with `${}`s
+    expression = new RegExp(`([^\\\\]|^)${expressionPrefix}(\\{.*?\\})`, 'g')
+
+    allExpressionPrefixes.push(expressionPrefix)
+  } else {
+    expression = standardTemplate
+  }
+
+  if (typeof valueMutator !== 'function') {
+    throw new TypeError('addHandler requires \'valueMutator\' to be a function')
+  }
+
+  if (typeof valuesObjectMutator !== 'function') {
+    throw new TypeError('addHandler requires \'valuesObjectMutator\' to be a function')
+  }
+
+  if (typeof logMutator !== 'function') {
+    throw new TypeError('addHandler requires \'logMutator\' to be a function')
+  }
+
+  handlers.push({
+    expression, // RegExp used to replace special values with vanilla `${}` values
+    valueMutator, // function that can be used to manipulate template values
+    valuesObjectMutator, // function that can be used to override what values object is used for replacements
+    logMutator // function that can be used to manipulate how values are printed to console
+  })
+}
+
+// phase 0: replace standard applied values (e.g. `${}`)
+module.exports.addHandler({
+  expressionPrefix: standardTemplate
+})
 
