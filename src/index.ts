@@ -1,18 +1,19 @@
-const fs = require('fs').promises
-const util = require('util')
+import type { Handler, ObjectMutator, ValueMutator } from '@conjurelabs/dot-template'
 
-const allExpressionPrefixes = ['\\$']
-const handlers = [] // [{ expression: RegExp, valueMutator?: Function, logMutator?: Function }]
+import { readFile } from 'fs/promises'
+import { inspect, InspectOptionsStylized } from 'util'
+
+const allExpressionPrefixes: string[] = ['\\$']
+const handlers: Handler[] = []
 const regExpSpecialChars = /[\\^$*+?.()|[\]{}]/g
 const keyApplied = Symbol('template with applied values')
 const keyLogged = Symbol('template with mix of applied values and custom logger replacements')
 // `standardTemplate` is assumed to be set only on the first pass
 const standardTemplate = Symbol('skip logic to replace prefixes in templates')
-const inspect = Symbol.for('nodejs.util.inspect.custom')
 
-const selfReturnNoOp = arg => arg
+const selfReturnNoOp = (arg: any) => arg
 
-const templatized = (template, values = {}, mutator, ...tailingArgs) => {
+const templatized = (template: string, values: Record<string, unknown> = {}, mutator: ValueMutator, ...tailingArgs: unknown[]): string => {
   const handler = new Function('values', [
     'const tagged = ( ' + Object.keys(values).join(', ') + ' ) =>',
       '`' + template + '`',
@@ -25,7 +26,7 @@ const templatized = (template, values = {}, mutator, ...tailingArgs) => {
 }
 
 const uniquePrefix = '____generated_'
-function appendUniqueValueKey(values, newValue, keyIndex = 0) {
+function appendUniqueValueKey(values: Record<string, unknown>, newValue: unknown, keyIndex = 0): [string, number] {
   while (values.hasOwnProperty(`${uniquePrefix}${keyIndex}`)) {
     keyIndex++
   }
@@ -38,8 +39,13 @@ function appendUniqueValueKey(values, newValue, keyIndex = 0) {
   ]
 }
 
+interface Template {
+  [keyApplied]: string
+  [keyLogged]: string
+}
+
 class Template {
-  constructor(template, valuesInput, ...tailingArgs) {
+  constructor(template: string, valuesInput: Record<string, unknown>, ...tailingArgs: unknown[]) {
     const values = { ...valuesInput }
 
     // before handling typical template replacements,
@@ -53,7 +59,7 @@ class Template {
     // a custome join token can be set via:
     // @key(embeddedTemplate)&(joinToken)
     let subtemplateIndexIncrement = 0
-    let allExpressionsMatcher
+    let allExpressionsMatcher: RegExp
 
     // this regexp matches something like:
     //   @key(${thing1} is ${thing2})
@@ -72,7 +78,7 @@ class Template {
     //   \((.*)\)                 contents within parenthesis - where only the contents inside are remembered
     //   (?:&\(([^)]*)\))?        matches something like &(, ) - which may or may not tail the previous
     //                            remembers only the content within the parenthesis
-    template = template.replace(/([^\\]|^)@(\w+)\(((?:(?:\(.*\))|[^)])*?)\)(?:&\(([^)]*)\))?/g, (_, lead, key, subtemplate, join = ', ') => {
+    template = template.replace(/([^\\]|^)@(\w+)\(((?:(?:\(.*\))|[^)])*?)\)(?:&\(([^)]*)\))?/g, (_, lead: string, key: string, subtemplate: string, join = ', ') => {
       if (!values.hasOwnProperty(key)) {
         return lead
       }
@@ -81,9 +87,11 @@ class Template {
         throw new Error(`Expected values.${key} to be an array`)
       }
 
+      const valuesArr = values[key] as Record<string, unknown>[]
+
       allExpressionsMatcher = allExpressionsMatcher || new RegExp(`([^\\\\]|^)(${allExpressionPrefixes.join('|')})\\{(.*?)\\}`, 'g')
 
-      return lead + values[key].map((subValues, index) => {
+      return lead + valuesArr.map((subValues, index) => {
         return subtemplate.replace(allExpressionsMatcher, (_, lead, expressionPrefix, valueKey) => {
           const [newKey, newIncrementIndex] = appendUniqueValueKey(values, subValues[valueKey], subtemplateIndexIncrement)
           subtemplateIndexIncrement = newIncrementIndex
@@ -146,7 +154,9 @@ class Template {
           // not checking against `skipReplacements` since that should
           // only be set on the first pass, which will result in state of `1`
           resultApplied = templatized(resultApplied, valuesObjectMutator(values, 'applied', ...tailingArgs), valueMutator, ...tailingArgs)
-          resultLogged = resultLogged.replace(expression, (_, lead, chunk) => `${lead}$${chunk}`)
+          if (expression instanceof RegExp) {
+            resultLogged = resultLogged.replace(expression, (_, lead, chunk) => `${lead}$${chunk}`)
+          }
           resultLogged = templatized(resultLogged, valuesObjectMutator(values, 'logged', ...tailingArgs), valueMutator, ...tailingArgs)
           break
 
@@ -155,7 +165,9 @@ class Template {
           // not checking against `skipReplacements` since that should
           // only be set on the first pass, which will result in state of `1`
           resultApplied = templatized(resultApplied, valuesObjectMutator(values, 'applied', ...tailingArgs), valueMutator, ...tailingArgs)
-          resultLogged = resultLogged.replace(expression, (_, lead, chunk) => `${lead}$${chunk}`)
+          if (expression instanceof RegExp) {
+            resultLogged = resultLogged.replace(expression, (_, lead, chunk) => `${lead}$${chunk}`)
+          }
           resultLogged = templatized(resultLogged, valuesObjectMutator(values, 'logged', ...tailingArgs), logMutator, ...tailingArgs)
           break
       }
@@ -173,24 +185,29 @@ class Template {
     return this[keyLogged]
   }
 
-  [util.inspect.custom](depth, options) {
+  [inspect.custom](depth: number, options: InspectOptionsStylized) {
     return options.stylize(this[keyLogged], 'string')
   }
 }
 
-module.exports = function dotTemplate(path) {
-  const template = fs.readFile(path, 'utf8')
+export default function dotTemplate(path: string) {
+  const template = readFile(path, 'utf8')
 
-  return async function prepare(values, ...tailingArgs) {
+  return async function prepare(values: Record<string, unknown>, ...tailingArgs: unknown[]) {
     return new Template(await template, values, null, ...tailingArgs)
   }
 }
 
-module.exports.addHandler = function addHandler({
+export function addHandler({
   expressionPrefix,
   valueMutator = selfReturnNoOp,
   valuesObjectMutator = selfReturnNoOp,
   logMutator
+}: {
+  expressionPrefix: string | typeof standardTemplate,
+  valueMutator?: ValueMutator,
+  valuesObjectMutator?: ObjectMutator,
+  logMutator?: ValueMutator
 }) {
   let expression
 
@@ -233,6 +250,7 @@ module.exports.addHandler = function addHandler({
 }
 
 // phase 0: replace standard applied values (e.g. `${}`)
-module.exports.addHandler({
+addHandler({
   expressionPrefix: standardTemplate
 })
+
